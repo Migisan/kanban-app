@@ -78,6 +78,7 @@ const Input = styled.textarea`
   background-color: ${color.White};
   font-size: 14px;
   line-height: 1.7;
+  box-sizing: border-box;
 
   :focus {
     outline: none;
