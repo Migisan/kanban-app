@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import styled from 'styled-components'
+import { useDispatch, useSelector } from 'react-redux'
 import produce from 'immer'
 import { randomID, sortBy, reorderPatch } from './util'
 import { api, ColumnID, CardID } from './api'
@@ -18,37 +19,62 @@ type State = {
       text?: string
     }[]
   }[]
-  cardsOrder: Record<string, CardID | ColumnID>
+  cardsOrder: Record<string, CardID | ColumnID | null>
 }
 
 export function App() {
-  const [filterValue, setFilterValue] = useState('')
-  const [{ columns, cardsOrder }, setData] = useState<State>({ cardsOrder: {} })
+  const dispatch = useDispatch()
+  const filterValue = useSelector(state => state.filterValue)
+  const setFilterValue = (value: string) =>
+    dispatch({
+      type: 'Filter.SetFilter',
+      payload: {
+        value,
+      },
+    })
+
+  const columns = useSelector(state => state.columns)
+  const cardsOrder = useSelector(state => state.cardsOrder)
+  const setData = fn => fn({ cardsOrder: {} })
+
+  const cardIsBeingDeleted = useSelector(state => Boolean(state.deletingCardID))
+  const setDeletingCardID = (cardID: CardID) =>
+    dispatch({
+      type: 'Card.SetDeletingCard',
+      payload: {
+        cardID,
+      },
+    })
+  const cancelDelete = () =>
+    dispatch({
+      type: 'Dialog.CancelDelete',
+    })
 
   useEffect(() => {
     ;(async () => {
       const columns = await api('GET /v1/columns', null)
-      setData(
-        produce((draft: State) => {
-          draft.columns = columns
-        }),
-      )
+
+      dispatch({
+        type: 'App.SetColumns',
+        payload: {
+          columns,
+        },
+      })
 
       const [unorderedCards, cardsOrder] = await Promise.all([
         api('GET /v1/cards', null),
         api('GET /v1/cardsOrder', null),
       ])
 
-      setData(
-        produce((draft: State) => {
-          draft.cardsOrder = cardsOrder
-          draft.columns?.forEach(column => {
-            column.cards = sortBy(unorderedCards, cardsOrder, column.id)
-          })
-        }),
-      )
+      dispatch({
+        type: 'App.SetCards',
+        payload: {
+          cards: unorderedCards,
+          cardsOrder,
+        },
+      })
     })()
-  }, [])
+  }, [dispatch])
 
   const [draggingCardID, setDraggingCardID] = useState<CardID | undefined>(
     undefined,
@@ -122,39 +148,6 @@ export function App() {
     api('PATCH /v1/cardsOrder', patch)
   }
 
-  const [deletingCardID, setDeletingCardID] = useState<CardID | undefined>(
-    undefined,
-  )
-  const deleteCard = () => {
-    const cardID = deletingCardID
-    if (!cardID) return
-
-    setDeletingCardID(undefined)
-
-    const patch = reorderPatch(cardsOrder, cardID)
-
-    setData(
-      produce((draft: State) => {
-        const column = draft.columns?.find(col =>
-          col.cards?.some(c => c.id === cardID),
-        )
-        if (!column?.cards) return
-
-        column.cards = column.cards?.filter(c => c.id !== cardID)
-
-        draft.cardsOrder = {
-          ...draft.cardsOrder,
-          ...patch,
-        }
-      }),
-    )
-
-    api('DELETE /v1/cards', {
-      id: cardID,
-    })
-    api('PATCH /v1/cardsOrder', patch)
-  }
-
   return (
     <Container>
       <Header filterValue={filterValue} onFilterChange={setFilterValue} />
@@ -182,12 +175,9 @@ export function App() {
         </HorizontalScroll>
       </MainArea>
 
-      {deletingCardID && (
-        <Overlay onClick={() => setDeletingCardID(undefined)}>
-          <DeleteDialog
-            onConfirm={deleteCard}
-            onCancel={() => setDeletingCardID(undefined)}
-          />
+      {cardIsBeingDeleted && (
+        <Overlay onClick={cancelDelete}>
+          <DeleteDialog />
         </Overlay>
       )}
     </Container>

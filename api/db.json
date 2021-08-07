@@ -31,10 +31,6 @@
       "text": "歯を磨く🦷"
     },
     {
-      "id": "3NRSLMq49xvT",
-      "text": "朝食をとる🍞"
-    },
-    {
       "id": "ulnuLLt5TN93",
       "text": "SNSをチェックする🐦"
     },
@@ -55,8 +51,8 @@
     "7lR4Vd3EYixP": "dfwMbxZS0EmM",
     "TsXP5w9qLeM-": "cXrtw5n8-FsB",
     "rh022hj9zG58": "w7DTqK1QQKTI",
-    "3NRSLMq49xvT": "TsXP5w9qLeM-",
+    "3NRSLMq49xvT": null,
     "ulnuLLt5TN93": "-wkumDeruhSx",
-    "-wkumDeruhSx": "3NRSLMq49xvT"
+    "-wkumDeruhSx": "TsXP5w9qLeM-"
   }
 }
