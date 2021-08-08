@@ -15,6 +15,7 @@ export type State = {
     }[]
   }[]
   cardsOrder: Record<string, CardID | ColumnID | null>
+  draggingCardID?: CardID
   deletingCardID?: CardID
 }
 
@@ -55,6 +56,30 @@ export type Action = | {
   type: 'Dialog.ConfirmDelete'
 } | {
   type: 'Dialog.CancelDelete'
+} | {
+  type: 'Card.StartDragging'
+  payload: {
+    cardID: CardID
+  }
+} | {
+  type: 'Card.EndDragging'
+} | {
+  type: 'Card.Drop'
+  payload: {
+    toID: CardID | ColumnID
+  }
+} | {
+  type: 'InputForm.SetText'
+  payload: {
+    columnID: ColumnID
+    value: string
+  }
+}   | {
+  type: 'InputForm.ConfirmInput'
+  payload: {
+    columnID: ColumnID
+    cardID: CardID
+  }
 }
 
 export const reducer: Reducer<State, Action> = produce(
@@ -105,6 +130,69 @@ export const reducer: Reducer<State, Action> = produce(
       }
       case 'Dialog.CancelDelete': {
         draft.deletingCardID = undefined
+        return
+      }
+      case 'Card.StartDragging': {
+        const { cardID } = action.payload
+
+        draft.draggingCardID = cardID
+        return
+      }
+      case 'Card.EndDragging': {
+        draft.draggingCardID = undefined
+        return
+      }
+      case 'Card.Drop': {
+        const fromID = draft.draggingCardID
+        if (!fromID) return
+
+        draft.draggingCardID = undefined
+
+        const { toID } = action.payload
+        if (fromID === toID) return
+
+        const patch = reorderPatch(draft.cardsOrder, fromID, toID)
+        draft.cardsOrder = {
+          ...draft.cardsOrder,
+          ...patch,
+        }
+
+        const unorderedCards = draft.columns?.flatMap(c => c.cards ?? []) ?? []
+        draft.columns?.forEach(column => {
+          column.cards = sortBy(unorderedCards, draft.cardsOrder, column.id)
+        })
+        return
+      }
+      case 'InputForm.SetText': {
+        const { columnID, value } = action.payload
+
+        const column = draft.columns?.find(c => c.id === columnID)
+        if (!column) return
+
+        column.text = value
+        return
+      }
+      case 'InputForm.ConfirmInput': {
+        const { columnID, cardID } = action.payload
+
+        const column = draft.columns?.find(c => c.id === columnID)
+        if (!column?.cards) return
+
+        column.cards.unshift({
+          id: cardID,
+          text: column.text,
+        })
+        column.text = ''
+
+        const patch = reorderPatch(
+          draft.cardsOrder,
+          cardID,
+          draft.cardsOrder[columnID],
+        )
+        draft.cardsOrder = {
+          ...draft.cardsOrder,
+          ...patch,
+        }
         return
       }
       default: {
